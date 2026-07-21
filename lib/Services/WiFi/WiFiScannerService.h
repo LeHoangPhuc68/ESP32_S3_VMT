@@ -45,6 +45,8 @@ public:
      */
     static void update();
 
+    static void cancelScan();
+
     /*
      * Dọn kết quả hiện tại.
      */
@@ -72,27 +74,17 @@ public:
     static std::int16_t lastScanCode();
 
 private:
-    static constexpr std::uint32_t PrepareDelayMs =
-        250;
+    static constexpr std::int16_t InitializationError =
+        -100;
 
-    static constexpr std::uint32_t ScanTimeoutMs =
-        15000;
+    static constexpr std::int16_t OwnershipUnavailableError =
+        -110;
 
-    /*
-     * Không coi WIFI_SCAN_FAILED là lỗi ngay lập tức.
-     *
-     * Cho driver/event loop thêm thời gian cập nhật
-     * trạng thái scan.
-     */
-    static constexpr std::uint32_t FailureGraceMs =
-        1500;
+    static constexpr std::int16_t OwnershipLostError =
+        -111;
 
-    static bool prepareRadio();
-
-    static bool launchAsyncScan();
-
-    static void finishScan(
-        std::int16_t resultCount);
+    static constexpr std::int16_t ScanRequestError =
+        -112;
 
     static void failScan(
         std::int16_t errorCode);
@@ -102,6 +94,8 @@ private:
 
     static void sortBySignalStrength();
 
+    static void clearNetworks();
+
     static bool initialized_;
 
     static State state_;
@@ -109,10 +103,6 @@ private:
     static Network networks_[MaxNetworks];
 
     static std::uint8_t networkCount_;
-
-    static std::uint32_t stateStartedAt_;
-
-    static std::uint32_t firstFailureAt_;
 
     static std::int16_t lastScanCode_;
 };

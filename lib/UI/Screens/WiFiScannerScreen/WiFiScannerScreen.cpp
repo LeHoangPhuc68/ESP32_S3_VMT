@@ -187,6 +187,8 @@ void WiFiScannerScreen::show()
 
 void WiFiScannerScreen::hide()
 {
+    WiFiScannerService::cancelScan();
+
     if (root_ == nullptr)
     {
         return;

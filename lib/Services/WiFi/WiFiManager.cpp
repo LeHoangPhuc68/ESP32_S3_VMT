@@ -11,6 +11,8 @@ bool WiFiManager::showHidden_ = true;
 std::uint16_t WiFiManager::passiveDwellMs_ = 300;
 std::uint32_t WiFiManager::stateStartedAt_ = 0;
 std::uint32_t WiFiManager::firstFailureAt_ = 0;
+bool WiFiManager::recoveryAttempted_ = false;
+bool WiFiManager::recoveryPending_ = false;
 std::int16_t WiFiManager::lastScanCode_ = 0;
 std::int16_t WiFiManager::resultCount_ = 0;
 
@@ -57,6 +59,8 @@ bool WiFiManager::begin()
     state_ = State::Idle;
     stateStartedAt_ = millis();
     firstFailureAt_ = 0;
+    recoveryAttempted_ = false;
+    recoveryPending_ = false;
     lastScanCode_ = 0;
     resultCount_ = 0;
 
@@ -75,16 +79,50 @@ void WiFiManager::update()
 
     if (state_ == State::Preparing)
     {
+        if (recoveryPending_)
+        {
+            if (now - stateStartedAt_ < PrepareDelayMs)
+            {
+                return;
+            }
+
+            if (!WiFi.mode(WIFI_STA) || !prepareRadio())
+            {
+                recoveryPending_ = false;
+                fail(-103);
+                return;
+            }
+
+            recoveryPending_ = false;
+            stateStartedAt_ = now;
+            Serial.println("[WiFiManager] Radio recovery complete");
+            return;
+        }
+
         if (now - stateStartedAt_ < PrepareDelayMs)
         {
             return;
         }
 
-        if (!launchScan())
+        if (launchScan())
         {
-            fail(lastScanCode_);
+            return;
         }
 
+        if (!recoveryAttempted_)
+        {
+            recoveryAttempted_ = true;
+
+            if (!startRadioRecovery())
+            {
+                fail(-103);
+                return;
+            }
+
+            return;
+        }
+
+        fail(lastScanCode_);
         return;
     }
 
@@ -102,7 +140,7 @@ void WiFiManager::update()
 
         if (now - stateStartedAt_ > ScanTimeoutMs)
         {
-            esp_wifi_scan_stop();
+            stopDriverScan("timeout");
             clearDriverResults();
             fail(-102);
         }
@@ -143,6 +181,7 @@ void WiFiManager::update()
     {
         if (now - stateStartedAt_ > ScanTimeoutMs)
         {
+            stopDriverScan("unknown timeout");
             clearDriverResults();
             fail(result);
         }
@@ -151,6 +190,44 @@ void WiFiManager::update()
     }
 
     finish(result);
+}
+
+bool WiFiManager::acquire(const Owner owner)
+{
+    if (owner == Owner::None)
+    {
+        Serial.println("[WiFiManager] Ownership rejected: invalid owner");
+        return false;
+    }
+
+    if (!initialized_ && !begin())
+    {
+        Serial.printf(
+            "[WiFiManager] Ownership rejected: initialization failed owner=%u\n",
+            static_cast<unsigned int>(owner));
+        return false;
+    }
+
+    if (owner_ == owner)
+    {
+        return true;
+    }
+
+    if (owner_ != Owner::None)
+    {
+        Serial.printf(
+            "[WiFiManager] Ownership rejected: owner=%u busyBy=%u\n",
+            static_cast<unsigned int>(owner),
+            static_cast<unsigned int>(owner_));
+        return false;
+    }
+
+    owner_ = owner;
+
+    Serial.printf(
+        "[WiFiManager] Ownership acquired: owner=%u\n",
+        static_cast<unsigned int>(owner_));
+    return true;
 }
 
 bool WiFiManager::requestScan(
@@ -164,17 +241,27 @@ bool WiFiManager::requestScan(
         return false;
     }
 
-    if (!initialized_ && !begin())
+    if (!initialized_)
     {
+        Serial.println("[WiFiManager] Scan rejected: manager not initialized");
         return false;
     }
 
-    if (isBusy())
+    if (owner_ != owner)
     {
         Serial.printf(
-            "[WiFiManager] Scan rejected: owner=%u busyBy=%u\n",
+            "[WiFiManager] Scan rejected: owner=%u currentOwner=%u\n",
             static_cast<unsigned int>(owner),
             static_cast<unsigned int>(owner_));
+        return false;
+    }
+
+    if (state_ != State::Idle)
+    {
+        Serial.printf(
+            "[WiFiManager] Scan rejected: owner=%u state=%s\n",
+            static_cast<unsigned int>(owner),
+            stateText());
         return false;
     }
 
@@ -187,10 +274,13 @@ bool WiFiManager::requestScan(
     resultCount_ = 0;
     lastScanCode_ = 0;
     firstFailureAt_ = 0;
+    recoveryAttempted_ = false;
+    recoveryPending_ = false;
 
     if (!prepareRadio())
     {
         fail(-101);
+        release(owner);
         return false;
     }
 
@@ -207,46 +297,82 @@ bool WiFiManager::requestScan(
 
 bool WiFiManager::cancel(const Owner owner)
 {
-    if (owner_ != owner)
+    if (owner == Owner::None)
     {
         return false;
     }
 
-    if (state_ == State::Scanning)
+    if (owner_ == Owner::None)
     {
-        esp_wifi_scan_stop();
+        return true;
+    }
+
+    if (owner_ != owner)
+    {
+        Serial.printf(
+            "[WiFiManager] Cancel rejected: owner=%u currentOwner=%u\n",
+            static_cast<unsigned int>(owner),
+            static_cast<unsigned int>(owner_));
+        return false;
+    }
+
+    const bool operationActive =
+        state_ == State::Preparing ||
+        state_ == State::Scanning;
+
+    if (operationActive)
+    {
+        stopDriverScan("cancel");
     }
 
     clearDriverResults();
-    owner_ = Owner::None;
     state_ = State::Idle;
     resultCount_ = 0;
-    lastScanCode_ = 0;
     firstFailureAt_ = 0;
+    recoveryAttempted_ = false;
+    recoveryPending_ = false;
     stateStartedAt_ = millis();
+
+    if (operationActive)
+    {
+        Serial.printf(
+            "[WiFiManager] Operation cancelled: owner=%u\n",
+            static_cast<unsigned int>(owner_));
+    }
+
     return true;
 }
 
 bool WiFiManager::release(const Owner owner)
 {
-    if (owner_ != owner)
+    if (owner == Owner::None)
     {
         return false;
     }
 
-    if (
-        state_ == State::Preparing ||
-        state_ == State::Scanning)
+    if (owner_ == Owner::None)
     {
-        return cancel(owner);
+        return true;
     }
 
-    clearDriverResults();
+    if (owner_ != owner)
+    {
+        Serial.printf(
+            "[WiFiManager] Release rejected: owner=%u currentOwner=%u\n",
+            static_cast<unsigned int>(owner),
+            static_cast<unsigned int>(owner_));
+        return false;
+    }
+
+    if (!cancel(owner))
+    {
+        return false;
+    }
+
     owner_ = Owner::None;
-    state_ = State::Idle;
-    resultCount_ = 0;
-    firstFailureAt_ = 0;
-    stateStartedAt_ = millis();
+    Serial.printf(
+        "[WiFiManager] Ownership released: owner=%u\n",
+        static_cast<unsigned int>(owner));
     return true;
 }
 
@@ -259,7 +385,7 @@ void WiFiManager::reset()
 
     if (state_ == State::Scanning)
     {
-        esp_wifi_scan_stop();
+        stopDriverScan("reset");
     }
 
     clearDriverResults();
@@ -271,6 +397,8 @@ void WiFiManager::reset()
     state_ = State::Uninitialized;
     resultCount_ = 0;
     lastScanCode_ = 0;
+    recoveryAttempted_ = false;
+    recoveryPending_ = false;
 }
 
 bool WiFiManager::isInitialized()
@@ -356,22 +484,49 @@ std::uint8_t WiFiManager::encryptionType(const std::int16_t index)
         : 0;
 }
 
+const char *WiFiManager::securityText(const std::uint8_t encryptionType)
+{
+    switch (static_cast<wifi_auth_mode_t>(encryptionType))
+    {
+    case WIFI_AUTH_OPEN:
+        return "OPEN";
+    case WIFI_AUTH_WEP:
+        return "WEP";
+    case WIFI_AUTH_WPA_PSK:
+        return "WPA";
+    case WIFI_AUTH_WPA2_PSK:
+        return "WPA2";
+    case WIFI_AUTH_WPA_WPA2_PSK:
+        return "WPA/WPA2";
+    case WIFI_AUTH_WPA2_ENTERPRISE:
+        return "WPA2-E";
+    case WIFI_AUTH_WPA3_PSK:
+        return "WPA3";
+    case WIFI_AUTH_WPA2_WPA3_PSK:
+        return "WPA2/3";
+    case WIFI_AUTH_WAPI_PSK:
+        return "WAPI";
+    case WIFI_AUTH_WPA3_ENT_192:
+        return "WPA3-E";
+    default:
+        return "SECURED";
+    }
+}
+
 bool WiFiManager::prepareRadio()
 {
     if (WiFi.getMode() != WIFI_STA)
     {
-        WiFi.mode(WIFI_OFF);
-        delay(60);
-
         if (!WiFi.mode(WIFI_STA))
         {
+            Serial.println("[WiFiManager] Failed to restore STA mode");
             return false;
         }
     }
 
     WiFi.setSleep(false);
     WiFi.disconnect(false, false);
-    esp_wifi_scan_stop();
+    stopDriverScan("prepare");
     clearDriverResults();
     return true;
 }
@@ -404,6 +559,43 @@ bool WiFiManager::launchScan()
     return false;
 }
 
+bool WiFiManager::startRadioRecovery()
+{
+    stopDriverScan("recovery");
+    clearDriverResults();
+    WiFi.disconnect(false, false);
+
+    if (!WiFi.mode(WIFI_OFF))
+    {
+        Serial.println("[WiFiManager] Failed to power down radio for recovery");
+        return false;
+    }
+
+    recoveryPending_ = true;
+    stateStartedAt_ = millis();
+    Serial.println("[WiFiManager] Radio recovery started");
+    return true;
+}
+
+void WiFiManager::stopDriverScan(const char *context)
+{
+    const esp_err_t result = esp_wifi_scan_stop();
+
+    if (
+        result == ESP_OK ||
+        result == ESP_ERR_WIFI_NOT_INIT ||
+        result == ESP_ERR_WIFI_NOT_STARTED ||
+        result == ESP_ERR_WIFI_STATE)
+    {
+        return;
+    }
+
+    Serial.printf(
+        "[WiFiManager] Scan stop warning: context=%s code=%d\n",
+        context,
+        static_cast<int>(result));
+}
+
 void WiFiManager::finish(const std::int16_t resultCount)
 {
     resultCount_ = resultCount;
@@ -411,6 +603,7 @@ void WiFiManager::finish(const std::int16_t resultCount)
     state_ = State::Ready;
     stateStartedAt_ = millis();
     firstFailureAt_ = 0;
+    recoveryPending_ = false;
 
     Serial.printf(
         "[WiFiManager] Scan complete owner=%u results=%d\n",
@@ -425,6 +618,7 @@ void WiFiManager::fail(const std::int16_t errorCode)
     state_ = State::Failed;
     stateStartedAt_ = millis();
     firstFailureAt_ = 0;
+    recoveryPending_ = false;
 
     Serial.printf(
         "[WiFiManager] Scan failed owner=%u code=%d\n",

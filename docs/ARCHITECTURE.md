@@ -128,9 +128,9 @@ Navigation is organized around:
 
 The callback boundary in `AppManager` must be preserved so `Core` remains decoupled from `UI`.
 
-## Wi-Fi target architecture
+## Wi-Fi architecture
 
-Current scanner and signal monitor code directly interacts with Arduino Wi-Fi APIs. The intended end state is:
+The scanner and signal monitor use `WiFiManager` as the single radio and scan owner. Packet monitoring and channel analysis remain planned and must use the same boundary when implemented:
 
 ```text
 WiFiScannerService ------\
@@ -146,10 +146,10 @@ ChannelAnalyzer ----------/
 - own scan lifecycle
 - arbitrate scan ownership
 - cancel and recover timed-out operations
-- expose stable scan results or a shared cache
+- expose value-copy result access while an owner holds completed scan data
 - prevent overlapping operations
 
-Feature services remain responsible for feature-specific interpretation, not low-level driver control.
+Feature services explicitly acquire ownership, request work, copy bounded results, and release ownership. Cancellation stops and cleans the current operation while retaining ownership; release performs the same cleanup and relinquishes ownership. Both operations are idempotent for the owning service. Feature services remain responsible for feature-specific interpretation, not low-level driver control.
 
 ## BLE target architecture
 

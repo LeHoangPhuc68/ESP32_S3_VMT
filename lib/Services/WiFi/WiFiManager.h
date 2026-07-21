@@ -28,6 +28,8 @@ public:
     static bool begin();
     static void update();
 
+    static bool acquire(Owner owner);
+
     static bool requestScan(
         Owner owner,
         std::uint8_t channel = 0,
@@ -53,6 +55,7 @@ public:
     static std::int32_t rssi(std::int16_t index);
     static std::int32_t channel(std::int16_t index);
     static std::uint8_t encryptionType(std::int16_t index);
+    static const char *securityText(std::uint8_t encryptionType);
 
 private:
     static constexpr std::uint32_t PrepareDelayMs = 180;
@@ -61,6 +64,8 @@ private:
 
     static bool prepareRadio();
     static bool launchScan();
+    static bool startRadioRecovery();
+    static void stopDriverScan(const char *context);
     static void finish(std::int16_t resultCount);
     static void fail(std::int16_t errorCode);
     static void clearDriverResults();
@@ -75,6 +80,8 @@ private:
 
     static std::uint32_t stateStartedAt_;
     static std::uint32_t firstFailureAt_;
+    static bool recoveryAttempted_;
+    static bool recoveryPending_;
 
     static std::int16_t lastScanCode_;
     static std::int16_t resultCount_;
