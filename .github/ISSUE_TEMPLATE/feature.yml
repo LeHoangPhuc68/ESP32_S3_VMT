@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a focused VMT feature or milestone
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should the feature accomplish?
+    validations:
+      required: true
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements
+      description: List behavior, architecture, and compatibility requirements.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Define observable conditions for completion.
+      placeholder: |
+        - Project builds with pio run -e lilygo
+        - Existing scanner behavior remains functional
+        - Hardware test checklist is provided
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware involved
+      description: Board, module, pins, and required test equipment.
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
