@@ -255,12 +255,6 @@ void WiFiScannerScreen::handleInput(
     }
 
     case InputManager::Action::Back:
-    {
-        startScan();
-        refresh();
-        break;
-    }
-
     case InputManager::Action::Home:
     {
         requestHome();
@@ -489,7 +483,7 @@ void WiFiScannerScreen::createFooter()
 
     lv_label_set_text(
         footerLabel_,
-        "LEFT/RIGHT MOVE   SELECT OPEN   BACK RESCAN   HOME EXIT");
+        "LEFT/RIGHT  MOVE   HOLD  RESCAN   BACK  EXIT");
 
     lv_obj_set_style_text_font(
         footerLabel_,
@@ -699,7 +693,7 @@ void WiFiScannerScreen::updateFooter()
     {
         lv_label_set_text(
             footerLabel_,
-            "SCANNING...   HOME EXIT");
+            "SCANNING...   BACK / HOME  EXIT");
 
         return;
     }
