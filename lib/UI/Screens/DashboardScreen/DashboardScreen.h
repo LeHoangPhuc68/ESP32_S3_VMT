@@ -16,7 +16,7 @@ public:
      * Tạo toàn bộ object LVGL của Dashboard.
      *
      * navigationCallback được gọi khi người dùng
-     * nhấn Back hoặc Home.
+     * yêu cầu quay lại menu cha.
      */
     bool create(
         lv_obj_t *parent,
@@ -43,7 +43,7 @@ private:
     void createConnectivityCard();
     void createFooter();
 
-    void requestHome();
+    void requestParent();
 
     lv_obj_t *root_ = nullptr;
 

@@ -5,20 +5,14 @@ namespace
     constexpr uint8_t PinLeft = 0;
     constexpr uint8_t PinRight = 14;
 
-    /*
-     * 25 ms đủ để chống dội nút vật lý.
-     */
+    /* Centralized, non-blocking physical-button timing. */
     constexpr uint32_t DebounceTimeMs = 25;
 
     /*
-     * Giảm từ 650 ms xuống 150 ms.
-     *
-     * 150 ms:
-     * - đủ phân biệt click với giữ;
-     * - không gây cảm giác phải chờ quá lâu;
-     * - phù hợp thao tác menu bằng hai nút.
+     * A long press is emitted once after 200 ms. The release path suppresses
+     * the short-click event after this threshold has been reached.
      */
-    constexpr uint32_t LongPressTimeMs = 200;
+    constexpr uint32_t LongPressTimeMs = 225;
 
     struct ButtonState
     {

@@ -83,6 +83,7 @@ bool HomeScreen::create(lv_obj_t *parent)
             root_,
             MainMenu::Items,
             MainMenu::ItemCount,
+            "MAIN MENU",
             &HomeScreen::handleMenuSelection,
             this))
     {
@@ -135,27 +136,12 @@ void HomeScreen::handleInput(
         return;
     }
 
-    /*
-     * Home luôn đóng menu.
-     */
-    if (action == InputManager::Action::Home)
-    {
-        menuScreen_.close();
-        return;
-    }
-
-    /*
-     * Giữ nguyên hành vi:
-     *
-     * Khi menu chưa mở:
-     * - Next mở menu;
-     * - Select mở menu.
-     */
     if (!menuScreen_.isVisible())
     {
         if (
             action == InputManager::Action::Next ||
-            action == InputManager::Action::Select)
+            action == InputManager::Action::Select ||
+            action == InputManager::Action::Primary)
         {
             menuScreen_.open();
         }
@@ -172,6 +158,11 @@ void HomeScreen::handleInput(
 const char *HomeScreen::name() const
 {
     return "Home";
+}
+
+void HomeScreen::showMainMenu()
+{
+    menuScreen_.open();
 }
 
 void HomeScreen::createWallpaper()

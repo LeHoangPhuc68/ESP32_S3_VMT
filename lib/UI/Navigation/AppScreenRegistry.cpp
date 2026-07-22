@@ -9,7 +9,15 @@ namespace AppScreenRegistry
         },
         {
             AppId::WiFiTools,
-            ScreenId::WiFiScanner
+            ScreenId::WiFiMenu
+        },
+        {
+            AppId::ChannelAnalyzer,
+            ScreenId::WiFiChannelAnalyzer
+        },
+        {
+            AppId::PacketMonitor,
+            ScreenId::WiFiPacketMonitor
         }
     };
 

@@ -3,11 +3,11 @@
 bool WiFiSelectionService::hasSelection_ =
     false;
 
-WiFiScannerService::Network
+WiFiScanEntry
     WiFiSelectionService::selected_;
 
 bool WiFiSelectionService::select(
-    const WiFiScannerService::Network &network)
+    const WiFiScanEntry &network)
 {
     selected_ =
         network;
@@ -23,7 +23,7 @@ bool WiFiSelectionService::hasSelection()
     return hasSelection_;
 }
 
-const WiFiScannerService::Network *
+const WiFiScanEntry *
 WiFiSelectionService::selected()
 {
     if (!hasSelection_)
@@ -36,23 +36,7 @@ WiFiSelectionService::selected()
 
 void WiFiSelectionService::clear()
 {
-    selected_.ssid =
-        String();
-
-    selected_.bssid =
-        String();
-
-    selected_.rssi =
-        0;
-
-    selected_.channel =
-        0;
-
-    selected_.encryptionType =
-        0;
-
-    selected_.hidden =
-        false;
+    selected_ = WiFiScanEntry();
 
     hasSelection_ =
         false;

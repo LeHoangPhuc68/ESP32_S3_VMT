@@ -37,8 +37,8 @@ bool WiFiScannerScreen::create(
     lv_obj_t *parent,
     const NavigationCallback detailCallback,
     void *detailContext,
-    const NavigationCallback homeCallback,
-    void *homeContext)
+    const NavigationCallback parentCallback,
+    void *parentContext)
 {
     if (parent == nullptr)
     {
@@ -51,11 +51,11 @@ bool WiFiScannerScreen::create(
     detailContext_ =
         detailContext;
 
-    homeCallback_ =
-        homeCallback;
+    parentCallback_ =
+        parentCallback;
 
-    homeContext_ =
-        homeContext;
+    parentContext_ =
+        parentContext;
 
     if (root_ != nullptr)
     {
@@ -238,12 +238,6 @@ void WiFiScannerScreen::handleInput(
 {
     switch (action)
     {
-    case InputManager::Action::Previous:
-    {
-        movePrevious();
-        break;
-    }
-
     case InputManager::Action::Next:
     {
         moveNext();
@@ -256,10 +250,16 @@ void WiFiScannerScreen::handleInput(
         break;
     }
 
-    case InputManager::Action::Back:
-    case InputManager::Action::Home:
+    case InputManager::Action::Primary:
     {
-        requestHome();
+        startScan();
+        refresh();
+        break;
+    }
+
+    case InputManager::Action::Back:
+    {
+        requestParent();
         break;
     }
 
@@ -485,7 +485,7 @@ void WiFiScannerScreen::createFooter()
 
     lv_label_set_text(
         footerLabel_,
-        "LEFT/RIGHT  MOVE   HOLD  RESCAN   BACK  EXIT");
+        "KEY NEXT/HOLD OPEN   BOOT RESCAN/HOLD BACK");
 
     lv_obj_set_style_text_font(
         footerLabel_,
@@ -631,7 +631,7 @@ void WiFiScannerScreen::updateRows()
             continue;
         }
 
-        const WiFiScannerService::Network *network =
+        const WiFiScanEntry *network =
             WiFiScannerService::network(
                 networkIndex);
 
@@ -695,40 +695,14 @@ void WiFiScannerScreen::updateFooter()
     {
         lv_label_set_text(
             footerLabel_,
-            "SCANNING...   BACK / HOME  EXIT");
+            "SCAN  KEY NEXT/HOLD OPEN  BOOT HOLD BACK");
 
         return;
     }
 
-        lv_label_set_text(
-            footerLabel_,
-            "LEFT/RIGHT  MOVE   SELECT  DETAIL   BACK  EXIT");
-}
-
-void WiFiScannerScreen::movePrevious()
-{
-    const std::uint8_t count =
-        WiFiScannerService::networkCount();
-
-    if (
-        count == 0 ||
-        WiFiScannerService::isScanning())
-    {
-        return;
-    }
-
-    if (selectedIndex_ == 0)
-    {
-        selectedIndex_ =
-            count - 1;
-    }
-    else
-    {
-        --selectedIndex_;
-    }
-
-    normalizeSelection();
-    refresh();
+    lv_label_set_text(
+        footerLabel_,
+        "KEY NEXT/HOLD OPEN   BOOT RESCAN/HOLD BACK");
 }
 
 void WiFiScannerScreen::moveNext()
@@ -736,9 +710,7 @@ void WiFiScannerScreen::moveNext()
     const std::uint8_t count =
         WiFiScannerService::networkCount();
 
-    if (
-        count == 0 ||
-        WiFiScannerService::isScanning())
+    if (count == 0)
     {
         return;
     }
@@ -805,12 +777,7 @@ void WiFiScannerScreen::normalizeSelection()
 
 void WiFiScannerScreen::openSelectedNetwork()
 {
-    if (WiFiScannerService::isScanning())
-    {
-        return;
-    }
-
-    const WiFiScannerService::Network *network =
+    const WiFiScanEntry *network =
         WiFiScannerService::network(
             selectedIndex_);
 
@@ -834,13 +801,13 @@ void WiFiScannerScreen::openSelectedNetwork()
         detailContext_);
 }
 
-void WiFiScannerScreen::requestHome()
+void WiFiScannerScreen::requestParent()
 {
-    if (homeCallback_ == nullptr)
+    if (parentCallback_ == nullptr)
     {
         return;
     }
 
-    homeCallback_(
-        homeContext_);
+    parentCallback_(
+        parentContext_);
 }

@@ -17,9 +17,7 @@ public:
         NavigationCallback monitorCallback,
         void *monitorContext,
         NavigationCallback backCallback,
-        void *backContext,
-        NavigationCallback homeCallback,
-        void *homeContext);
+        void *backContext);
 
     bool create(
         lv_obj_t *parent) override;
@@ -48,8 +46,6 @@ private:
         std::uint8_t quality);
 
     void requestBack();
-
-    void requestHome();
 
     void requestMonitor();
 
@@ -104,9 +100,4 @@ private:
     void *backContext_ =
         nullptr;
 
-    NavigationCallback homeCallback_ =
-        nullptr;
-
-    void *homeContext_ =
-        nullptr;
 };

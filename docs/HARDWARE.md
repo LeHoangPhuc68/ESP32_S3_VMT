@@ -35,13 +35,16 @@ Current data files:
 
 ## Input
 
-Input is abstracted by `InputManager` into:
+Input is abstracted by `InputManager` into four semantic actions:
 
-- Previous
-- Next
-- Select
-- Back
-- Home
+| Physical button | Press | Action | UI behavior |
+| --- | --- | --- | --- |
+| KEY (GPIO14) | Short | `Next` | Move focus to the next selectable item |
+| KEY (GPIO14) | Long | `Select` | Select, open, or confirm the focused item |
+| BOOT (GPIO0) | Short | `Primary` | Run the screen's contextual primary action |
+| BOOT (GPIO0) | Long | `Back` | Return one screen or menu level |
+
+The button driver uses a centralized 25 ms debounce interval and a 200 ms long-press threshold. Detection uses `millis()` without blocking delays. A generated long-press event suppresses the short-click event on release.
 
 Physical button mapping belongs in the input and pin configuration code, not individual screens.
 

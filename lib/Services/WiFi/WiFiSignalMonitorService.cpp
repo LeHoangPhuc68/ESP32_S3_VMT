@@ -9,7 +9,7 @@ WiFiSignalMonitorService::State
     WiFiSignalMonitorService::state_ =
         WiFiSignalMonitorService::State::Idle;
 
-WiFiScannerService::Network
+WiFiScanEntry
     WiFiSignalMonitorService::target_;
 
 std::int32_t
@@ -58,7 +58,7 @@ std::int16_t
         0;
 
 bool WiFiSignalMonitorService::start(
-    const WiFiScannerService::Network &target)
+    const WiFiScanEntry &target)
 {
     stop();
 
@@ -262,7 +262,7 @@ WiFiSignalMonitorService::stateText()
     }
 }
 
-const WiFiScannerService::Network *
+const WiFiScanEntry *
 WiFiSignalMonitorService::target()
 {
     if (!running_)

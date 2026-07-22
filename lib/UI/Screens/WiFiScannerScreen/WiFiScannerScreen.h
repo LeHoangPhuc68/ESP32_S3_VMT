@@ -18,8 +18,8 @@ public:
         lv_obj_t *parent,
         NavigationCallback detailCallback,
         void *detailContext,
-        NavigationCallback homeCallback,
-        void *homeContext);
+        NavigationCallback parentCallback,
+        void *parentContext);
 
     bool create(
         lv_obj_t *parent) override;
@@ -55,15 +55,13 @@ private:
 
     void updateFooter();
 
-    void movePrevious();
-
     void moveNext();
 
     void normalizeSelection();
 
     void openSelectedNetwork();
 
-    void requestHome();
+    void requestParent();
 
     lv_obj_t *root_ =
         nullptr;
@@ -92,10 +90,10 @@ private:
     void *detailContext_ =
         nullptr;
 
-    NavigationCallback homeCallback_ =
+    NavigationCallback parentCallback_ =
         nullptr;
 
-    void *homeContext_ =
+    void *parentContext_ =
         nullptr;
 
     std::uint8_t selectedIndex_ =

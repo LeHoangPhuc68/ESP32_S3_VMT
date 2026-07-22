@@ -3,10 +3,15 @@
 #include <Arduino.h>
 #include <cstdint>
 
+#include "WiFiScanSnapshot.h"
+
 class WiFiScannerService final
 {
 public:
-    static constexpr std::uint8_t MaxNetworks = 16;
+    using Network = WiFiScanEntry;
+
+    static constexpr std::uint8_t MaxNetworks =
+        WiFiScanSnapshot::Capacity;
 
     enum class State : std::uint8_t
     {
@@ -15,19 +20,6 @@ public:
         Scanning,
         Complete,
         Failed
-    };
-
-    struct Network
-    {
-        String ssid;
-        String bssid;
-
-        std::int32_t rssi = 0;
-        std::int32_t channel = 0;
-
-        std::uint8_t encryptionType = 0;
-
-        bool hidden = false;
     };
 
     /*
@@ -61,6 +53,8 @@ public:
     static const Network *network(
         std::uint8_t index);
 
+    static const WiFiScanSnapshot &snapshot();
+
     static const char *stateText();
 
     static const char *securityText(
@@ -89,20 +83,23 @@ private:
     static void failScan(
         std::int16_t errorCode);
 
-    static void collectResults(
+    static void stageResults(
         std::int16_t resultCount);
 
-    static void sortBySignalStrength();
+    static void publishStagedResults();
 
-    static void clearNetworks();
+    static void sortBySignalStrength(
+        std::uint8_t count);
 
     static bool initialized_;
 
     static State state_;
 
-    static Network networks_[MaxNetworks];
+    static WiFiScanSnapshot snapshot_;
 
-    static std::uint8_t networkCount_;
+    static Network stagedNetworks_[MaxNetworks];
+
+    static std::uint8_t stagedNetworkCount_;
 
     static std::int16_t lastScanCode_;
 };

@@ -21,9 +21,36 @@ public:
         Idle,
         Preparing,
         Scanning,
+        Monitoring,
         Ready,
         Failed
     };
+
+    enum class FrameType : std::uint8_t
+    {
+        Management = 0,
+        Control,
+        Data,
+        Misc
+    };
+
+    struct FrameView
+    {
+        // Borrowed driver data; valid only for the duration of the callback.
+        FrameType type = FrameType::Misc;
+        const std::uint8_t *payload = nullptr;
+        std::uint16_t length = 0;
+        std::int8_t rssi = 0;
+        std::uint8_t channel = 0;
+        std::uint8_t rxState = 0;
+    };
+
+    using PromiscuousCallback = void (*)(
+        void *context,
+        const FrameView &frame);
+
+    // Runs on the Wi-Fi driver task. The callback must remain bounded and
+    // must not call WiFiManager lifecycle operations.
 
     static bool begin();
     static void update();
@@ -35,6 +62,14 @@ public:
         std::uint8_t channel = 0,
         bool showHidden = true,
         std::uint16_t passiveDwellMs = 300);
+
+    static bool startPromiscuous(
+        Owner owner,
+        std::uint8_t channel,
+        PromiscuousCallback callback,
+        void *context);
+
+    static bool stopPromiscuous(Owner owner);
 
     static bool cancel(Owner owner);
     static bool release(Owner owner);
@@ -48,6 +83,7 @@ public:
     static State state();
     static const char *stateText();
     static std::int16_t lastScanCode();
+    static std::int16_t lastRadioCode();
     static std::int16_t resultCount();
 
     static String ssid(std::int16_t index);
@@ -63,6 +99,7 @@ private:
     static constexpr std::uint32_t FailureGraceMs = 1200;
 
     static bool prepareRadio();
+    static bool cleanupPromiscuous();
     static bool launchScan();
     static bool startRadioRecovery();
     static void stopDriverScan(const char *context);
@@ -84,5 +121,9 @@ private:
     static bool recoveryPending_;
 
     static std::int16_t lastScanCode_;
+    static std::int16_t lastRadioCode_;
     static std::int16_t resultCount_;
+
+    static bool promiscuousActive_;
+    static bool promiscuousConfigured_;
 };

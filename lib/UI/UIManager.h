@@ -24,6 +24,10 @@ public:
 
     static bool showHome();
 
+    static bool showMainMenu();
+
+    static bool showParent();
+
     static bool showApp(
         AppId appId);
 
@@ -37,18 +41,21 @@ private:
         void *context,
         AppId appId);
 
-    static void handleReturnHome(
+    static void handleShowParent(
+        void *context);
+
+    static void handleShowWiFiScanner(
+        void *context);
+
+    static void handleShowWiFiChannelAnalyzer(
+        void *context);
+
+    static void handleShowWiFiPacketMonitor(
         void *context);
 
     static void handleShowWiFiAccessPoint(
         void *context);
-
-    static void handleReturnWiFiScanner(
-        void *context);
         
     static void handleShowWiFiSignalMonitor(
-    void *context);
-
-    static void handleReturnWiFiAccessPoint(
         void *context);
 };

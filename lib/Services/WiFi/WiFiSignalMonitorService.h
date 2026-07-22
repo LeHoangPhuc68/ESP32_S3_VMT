@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <cstdint>
 
-#include "WiFiScannerService.h"
+#include "WiFiScanSnapshot.h"
 
 class WiFiSignalMonitorService final
 {
@@ -29,7 +29,7 @@ public:
     };
 
     static bool start(
-        const WiFiScannerService::Network &target);
+        const WiFiScanEntry &target);
 
     static void stop();
 
@@ -43,7 +43,7 @@ public:
 
     static const char *stateText();
 
-    static const WiFiScannerService::Network *target();
+    static const WiFiScanEntry *target();
 
     static bool hasSample();
 
@@ -119,7 +119,7 @@ private:
 
     static State state_;
 
-    static WiFiScannerService::Network target_;
+    static WiFiScanEntry target_;
 
     static std::int32_t history_[HistorySize];
 

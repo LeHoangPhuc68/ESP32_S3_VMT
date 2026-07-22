@@ -9,12 +9,15 @@ WiFiScannerService::State
     WiFiScannerService::state_ =
         WiFiScannerService::State::Idle;
 
+WiFiScanSnapshot
+    WiFiScannerService::snapshot_;
+
 WiFiScannerService::Network
-    WiFiScannerService::networks_[
+    WiFiScannerService::stagedNetworks_[
         WiFiScannerService::MaxNetworks];
 
 std::uint8_t
-    WiFiScannerService::networkCount_ =
+    WiFiScannerService::stagedNetworkCount_ =
         0;
 
 std::int16_t
@@ -37,7 +40,7 @@ bool WiFiScannerService::begin()
     initialized_ = true;
     state_ = State::Idle;
     lastScanCode_ = 0;
-    clearNetworks();
+    snapshot_.clear();
 
     Serial.println("[WiFiScanner] Ready");
     return true;
@@ -107,15 +110,16 @@ void WiFiScannerService::update()
         return;
 
     case WiFiManager::State::Ready:
-        collectResults(WiFiManager::resultCount());
-        sortBySignalStrength();
+        stageResults(WiFiManager::resultCount());
 
         if (!WiFiManager::release(Owner))
         {
+            stagedNetworkCount_ = 0;
             failScan(OwnershipLostError);
             return;
         }
 
+        publishStagedResults();
         state_ = State::Complete;
         return;
 
@@ -169,7 +173,7 @@ void WiFiScannerService::cancelScan()
         return;
     }
 
-    state_ = networkCount_ > 0 ? State::Complete : State::Idle;
+    state_ = networkCount() > 0 ? State::Complete : State::Idle;
     lastScanCode_ = 0;
     Serial.println("[WiFiScanner] Scan cancelled");
 }
@@ -177,7 +181,8 @@ void WiFiScannerService::cancelScan()
 void WiFiScannerService::clear()
 {
     cancelScan();
-    clearNetworks();
+    stagedNetworkCount_ = 0;
+    snapshot_.clear();
     state_ = State::Idle;
     lastScanCode_ = 0;
 }
@@ -198,19 +203,20 @@ bool WiFiScannerService::isScanning()
 std::uint8_t
 WiFiScannerService::networkCount()
 {
-    return networkCount_;
+    return snapshot_.count();
 }
 
 const WiFiScannerService::Network *
 WiFiScannerService::network(
     const std::uint8_t index)
 {
-    if (index >= networkCount_)
-    {
-        return nullptr;
-    }
+    return snapshot_.entry(index);
+}
 
-    return &networks_[index];
+const WiFiScanSnapshot &
+WiFiScannerService::snapshot()
+{
+    return snapshot_;
 }
 
 const char *
@@ -264,15 +270,18 @@ void WiFiScannerService::failScan(const std::int16_t errorCode)
         static_cast<unsigned int>(WiFiManager::owner()));
 }
 
-void WiFiScannerService::collectResults(const std::int16_t resultCount)
+void WiFiScannerService::stageResults(
+    const std::int16_t resultCount)
 {
-    clearNetworks();
+    stagedNetworkCount_ = 0;
 
     for (std::int16_t index = 0;
-         index < resultCount && networkCount_ < MaxNetworks;
+         index < resultCount && stagedNetworkCount_ < MaxNetworks;
          ++index)
     {
-        Network &network = networks_[networkCount_];
+        Network &network =
+            stagedNetworks_[stagedNetworkCount_];
+
         network.ssid = WiFiManager::ssid(index);
         network.bssid = WiFiManager::bssid(index);
         network.rssi = WiFiManager::rssi(index);
@@ -285,27 +294,48 @@ void WiFiScannerService::collectResults(const std::int16_t resultCount)
             network.ssid = "<hidden>";
         }
 
-        ++networkCount_;
+        ++stagedNetworkCount_;
     }
 
-    Serial.printf(
-        "[WiFiScanner] Stored %u networks\n",
-        static_cast<unsigned int>(networkCount_));
+    sortBySignalStrength(stagedNetworkCount_);
 }
 
-void WiFiScannerService::sortBySignalStrength()
+void WiFiScannerService::publishStagedResults()
 {
-    if (networkCount_ < 2)
+    const std::uint8_t publishedCount =
+        stagedNetworkCount_;
+
+    for (std::uint8_t index = 0;
+         index < publishedCount;
+         ++index)
+    {
+        snapshot_.entryForPublication(index) =
+            stagedNetworks_[index];
+    }
+
+    snapshot_.publish(publishedCount, millis());
+    stagedNetworkCount_ = 0;
+
+    Serial.printf(
+        "[WiFiScanner] Published generation=%lu networks=%u\n",
+        static_cast<unsigned long>(snapshot_.generation()),
+        static_cast<unsigned int>(publishedCount));
+}
+
+void WiFiScannerService::sortBySignalStrength(
+    const std::uint8_t count)
+{
+    if (count < 2)
     {
         return;
     }
 
     for (std::uint8_t index = 1;
-         index < networkCount_;
+         index < count;
          ++index)
     {
         Network current =
-            networks_[index];
+            stagedNetworks_[index];
 
         std::int16_t position =
             static_cast<std::int16_t>(
@@ -313,26 +343,16 @@ void WiFiScannerService::sortBySignalStrength()
 
         while (
             position >= 0 &&
-            networks_[position].rssi <
+            stagedNetworks_[position].rssi <
                 current.rssi)
         {
-            networks_[position + 1] =
-                networks_[position];
+            stagedNetworks_[position + 1] =
+                stagedNetworks_[position];
 
             --position;
         }
 
-        networks_[position + 1] =
+        stagedNetworks_[position + 1] =
             current;
     }
-}
-
-void WiFiScannerService::clearNetworks()
-{
-    for (std::uint8_t index = 0; index < MaxNetworks; ++index)
-    {
-        networks_[index] = Network();
-    }
-
-    networkCount_ = 0;
 }
