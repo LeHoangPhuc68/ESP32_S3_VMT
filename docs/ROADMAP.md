@@ -28,16 +28,16 @@
 - [x] Selected access point service
 - [x] Access point detail screen
 - [x] Signal monitor service and screen
-- [~] Packet monitor foundation
-- [ ] Centralized `WiFiManager`
-- [ ] Radio ownership arbitration
-- [ ] Shared bounded scan cache
+- [x] Passive packet monitor
+- [x] Centralized `WiFiManager`
+- [x] Radio ownership arbitration
+- [~] Shared bounded scan snapshot/cache foundation
 - [ ] Reliable repeated rescan and recovery tests
-- [ ] Channel analyzer
+- [x] Channel analyzer
 - [ ] Offline OUI/vendor lookup
 - [ ] Favorite access points stored in NVS or LittleFS
 - [ ] Configurable auto-refresh interval
-- [ ] Passive packet statistics and protocol summaries
+- [x] Passive packet statistics and frame-type summaries
 
 ## Bluetooth Low Energy
 

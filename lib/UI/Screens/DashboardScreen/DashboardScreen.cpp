@@ -215,15 +215,14 @@ void DashboardScreen::handleInput(
     switch (action)
     {
     case InputManager::Action::Back:
-    case InputManager::Action::Home:
     {
-        requestHome();
+        requestParent();
         break;
     }
 
-    case InputManager::Action::Previous:
     case InputManager::Action::Next:
     case InputManager::Action::Select:
+    case InputManager::Action::Primary:
     case InputManager::Action::None:
     default:
     {
@@ -576,7 +575,7 @@ void DashboardScreen::createFooter()
 
     lv_label_set_text(
         footerLabel_,
-        "BACK / HOME  RETURN");
+        "BOOT HOLD  MAIN MENU");
 
     lv_obj_set_style_text_font(
         footerLabel_,
@@ -595,7 +594,7 @@ void DashboardScreen::createFooter()
         -7);
 }
 
-void DashboardScreen::requestHome()
+void DashboardScreen::requestParent()
 {
     if (navigationCallback_ == nullptr)
     {

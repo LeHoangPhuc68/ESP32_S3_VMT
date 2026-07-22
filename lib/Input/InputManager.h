@@ -7,11 +7,10 @@ namespace InputManager
     enum class Action : uint8_t
     {
         None = 0,
-        Previous,
         Next,
         Select,
-        Back,
-        Home
+        Primary,
+        Back
     };
 
     bool begin();

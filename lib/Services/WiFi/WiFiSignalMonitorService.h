@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <cstdint>
 
-#include "WiFiScannerService.h"
+#include "WiFiScanSnapshot.h"
 
 class WiFiSignalMonitorService final
 {
@@ -29,7 +29,7 @@ public:
     };
 
     static bool start(
-        const WiFiScannerService::Network &target);
+        const WiFiScanEntry &target);
 
     static void stop();
 
@@ -43,7 +43,7 @@ public:
 
     static const char *stateText();
 
-    static const WiFiScannerService::Network *target();
+    static const WiFiScanEntry *target();
 
     static bool hasSample();
 
@@ -80,23 +80,30 @@ public:
     static std::int16_t lastScanCode();
 
 private:
-    static constexpr std::uint32_t PrepareDelayMs =
-        150;
-
     static constexpr std::uint32_t SampleIntervalMs =
         1500;
-
-    static constexpr std::uint32_t ScanTimeoutMs =
-        10000;
 
     static constexpr std::uint32_t RetryDelayMs =
         1000;
 
-    static bool prepareRadio();
+    static constexpr std::int16_t InvalidTargetError =
+        -200;
 
-    static bool launchScan();
+    static constexpr std::int16_t InitializationError =
+        -201;
 
-    static void processResults(
+    static constexpr std::int16_t OwnershipUnavailableError =
+        -210;
+
+    static constexpr std::int16_t OwnershipLostError =
+        -211;
+
+    static constexpr std::int16_t ScanRequestError =
+        -212;
+
+    static bool requestSample();
+
+    static void consumeResults(
         std::int16_t resultCount);
 
     static void addSample(
@@ -112,7 +119,7 @@ private:
 
     static State state_;
 
-    static WiFiScannerService::Network target_;
+    static WiFiScanEntry target_;
 
     static std::int32_t history_[HistorySize];
 
@@ -127,8 +134,6 @@ private:
     static std::int32_t maximumRssi_;
 
     static std::int32_t averageRssi_;
-
-    static std::uint32_t stateStartedAt_;
 
     static std::uint32_t nextScanAt_;
 

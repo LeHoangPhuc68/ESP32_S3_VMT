@@ -1,4 +1,4 @@
-#include "UIManager.h"
+﻿#include "UIManager.h"
 
 #include <Arduino.h>
 #include <cstdint>
@@ -168,7 +168,7 @@ bool UIManager::begin()
         LV_OBJ_FLAG_SCROLLABLE);
 
     /*
-     * Khởi tạo service trước khi screen sử dụng nó.
+     * Khá»Ÿi táº¡o service trÆ°á»›c khi screen sá»­ dá»¥ng nÃ³.
      */
     if (!WiFiScannerService::begin())
     {
@@ -181,7 +181,7 @@ bool UIManager::begin()
     }
 
     /*
-     * Tạo screen.
+     * Táº¡o screen.
      */
     if (!homeScreen.create(root))
     {
@@ -255,7 +255,7 @@ bool UIManager::begin()
     }
 
     /*
-     * Khởi tạo và đăng ký screen.
+     * Khá»Ÿi táº¡o vÃ  Ä‘Äƒng kÃ½ screen.
      */
     if (!ScreenManager::begin())
     {
@@ -319,7 +319,7 @@ bool UIManager::begin()
     }
 
     /*
-     * AppManager điều phối AppId sang UI.
+     * AppManager Ä‘iá»u phá»‘i AppId sang UI.
      */
     if (!AppManager::begin())
     {
@@ -498,18 +498,8 @@ void UIManager::handleShowWiFiChannelAnalyzer(
 {
     (void)context;
 
-    Serial.println("[NAV] request Channel Analyzer");
-
-    const bool result =
-        showScreen(ScreenId::WiFiChannelAnalyzer);
-
-    Serial.printf(
-        "[NAV] show result=%d currentId=%u current=%s\n",
-        result ? 1 : 0,
-        static_cast<unsigned int>(currentScreenId()),
-        currentScreen() != nullptr
-            ? currentScreen()->name()
-            : "NULL");
+    showScreen(
+        ScreenId::WiFiChannelAnalyzer);
 }
 
 void UIManager::handleShowWiFiPacketMonitor(
@@ -517,18 +507,8 @@ void UIManager::handleShowWiFiPacketMonitor(
 {
     (void)context;
 
-    Serial.println("[NAV] request Packet Monitor");
-
-    const bool result =
-        showScreen(ScreenId::WiFiPacketMonitor);
-
-    Serial.printf(
-        "[NAV] show result=%d currentId=%u current=%s\n",
-        result ? 1 : 0,
-        static_cast<unsigned int>(currentScreenId()),
-        currentScreen() != nullptr
-            ? currentScreen()->name()
-            : "NULL");
+    showScreen(
+        ScreenId::WiFiPacketMonitor);
 }
 
 void UIManager::handleShowWiFiAccessPoint(
@@ -548,3 +528,4 @@ void UIManager::handleShowWiFiSignalMonitor(
     showScreen(
         ScreenId::WiFiSignalMonitor);
 }
+

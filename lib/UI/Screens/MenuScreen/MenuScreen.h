@@ -17,91 +17,69 @@ public:
 
     MenuScreen() = default;
 
-    /*
-     * Tạo giao diện menu.
-     *
-     * items:
-     *   Danh sách mục menu bên ngoài truyền vào.
-     *
-     * itemCount:
-     *   Số lượng mục menu.
-     *
-     * selectionCallback:
-     *   Callback được gọi khi người dùng chọn một mục.
-     *
-     * callbackContext:
-     *   Con trỏ ngữ cảnh trả lại cho callback.
-     */
     bool create(
         lv_obj_t *parent,
         const MenuItem *items,
         std::uint8_t itemCount,
+        const char *title,
         SelectionCallback selectionCallback,
         void *callbackContext);
 
-    /*
-     * Mở menu.
-     */
     void open();
 
-    /*
-     * Đóng menu và ẩn status.
-     */
     void close();
 
-    /*
-     * Kiểm tra menu có đang hiển thị không.
-     */
     bool isVisible() const;
 
-    /*
-     * Nhận input khi menu đang mở.
-     */
     void handleInput(
         InputManager::Action action);
 
-    /*
-     * Hiển thị thông báo trạng thái.
-     *
-     * Nội dung và ý nghĩa thông báo được quyết định
-     * bởi HomeScreen hoặc lớp gọi bên ngoài.
-     */
     void showStatus(
         const char *text,
         std::uint32_t color);
 
-    /*
-     * Ẩn thông báo trạng thái.
-     */
     void hideStatus();
 
-    /*
-     * Trả về index đang được chọn.
-     */
     std::uint8_t selectedIndex() const;
 
 private:
-    void createStatusLabel(
-        lv_obj_t *parent);
+    static constexpr std::uint8_t MaximumTileCount = 6;
 
     void createMenuCard(
         lv_obj_t *parent);
 
+    void createHeader();
+
+    void createTiles();
+
+    void createControlLabel();
+
     void updateMenuDisplay();
+
     void selectCurrentMenuItem();
+
+    bool isItemImplemented(
+        std::uint8_t index) const;
+
+    static const char *iconForApp(
+        AppId appId);
 
     const MenuItem *items_ = nullptr;
     std::uint8_t itemCount_ = 0;
+    const char *title_ = nullptr;
 
     SelectionCallback selectionCallback_ = nullptr;
     void *callbackContext_ = nullptr;
 
     lv_obj_t *menuCard_ = nullptr;
-    lv_obj_t *menuItemLabel_ = nullptr;
-    lv_obj_t *menuPositionLabel_ = nullptr;
-    lv_obj_t *menuControlLabel_ = nullptr;
-
+    lv_obj_t *titleLabel_ = nullptr;
     lv_obj_t *statusLabel_ = nullptr;
+    lv_obj_t *controlLabel_ = nullptr;
+
+    lv_obj_t *tileContainers_[MaximumTileCount] = {};
+    lv_obj_t *tileIconLabels_[MaximumTileCount] = {};
+    lv_obj_t *tileTitleLabels_[MaximumTileCount] = {};
+    lv_obj_t *tileStateLabels_[MaximumTileCount] = {};
 
     bool visible_ = false;
     std::uint8_t selectedMenuIndex_ = 0;

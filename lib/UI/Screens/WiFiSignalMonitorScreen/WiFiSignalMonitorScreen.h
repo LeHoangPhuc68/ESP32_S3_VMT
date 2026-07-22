@@ -17,9 +17,7 @@ public:
     bool create(
         lv_obj_t *parent,
         NavigationCallback backCallback,
-        void *backContext,
-        NavigationCallback homeCallback,
-        void *homeContext);
+        void *backContext);
 
     bool create(
         lv_obj_t *parent) override;
@@ -54,8 +52,6 @@ private:
     void updateStatusColor();
 
     void requestBack();
-
-    void requestHome();
 
     static std::int32_t graphHeightForRssi(
         std::int32_t rssi);
@@ -106,12 +102,6 @@ private:
         nullptr;
 
     void *backContext_ =
-        nullptr;
-
-    NavigationCallback homeCallback_ =
-        nullptr;
-
-    void *homeContext_ =
         nullptr;
 
     std::uint32_t lastRefreshAt_ =

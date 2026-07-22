@@ -1,7 +1,6 @@
 #include "WiFiSignalMonitorService.h"
 
-#include <WiFi.h>
-#include <esp_wifi.h>
+#include "WiFiManager.h"
 
 bool WiFiSignalMonitorService::running_ =
     false;
@@ -10,7 +9,7 @@ WiFiSignalMonitorService::State
     WiFiSignalMonitorService::state_ =
         WiFiSignalMonitorService::State::Idle;
 
-WiFiScannerService::Network
+WiFiScanEntry
     WiFiSignalMonitorService::target_;
 
 std::int32_t
@@ -43,10 +42,6 @@ std::int32_t
         -100;
 
 std::uint32_t
-    WiFiSignalMonitorService::stateStartedAt_ =
-        0;
-
-std::uint32_t
     WiFiSignalMonitorService::nextScanAt_ =
         0;
 
@@ -63,126 +58,72 @@ std::int16_t
         0;
 
 bool WiFiSignalMonitorService::start(
-    const WiFiScannerService::Network &target)
+    const WiFiScanEntry &target)
 {
     stop();
 
     if (target.bssid.length() == 0)
     {
-        Serial.println(
-            "[SignalMonitor] Invalid target BSSID");
-
-        state_ =
-            State::Failed;
-
-        lastScanCode_ =
-            -200;
-
+        Serial.println("[SignalMonitor] Invalid target BSSID");
+        state_ = State::Failed;
+        lastScanCode_ = InvalidTargetError;
         return false;
     }
 
-    target_ =
-        target;
-
-    for (std::uint8_t index = 0;
-         index < HistorySize;
-         ++index)
+    if (!WiFiManager::begin())
     {
-        history_[index] =
-            -100;
-    }
-
-    historyCount_ =
-        0;
-
-    historyWriteIndex_ =
-        0;
-
-    currentRssi_ =
-        target.rssi;
-
-    minimumRssi_ =
-        target.rssi;
-
-    maximumRssi_ =
-        target.rssi;
-
-    averageRssi_ =
-        target.rssi;
-
-    successfulScans_ =
-        0;
-
-    missedScans_ =
-        0;
-
-    lastScanCode_ =
-        0;
-
-    if (!prepareRadio())
-    {
-        state_ =
-            State::Failed;
-
-        lastScanCode_ =
-            -201;
-
+        Serial.println("[SignalMonitor] Wi-Fi manager initialization failed");
+        state_ = State::Failed;
+        lastScanCode_ = InitializationError;
         return false;
     }
 
-    /*
-     * Dùng RSSI từ màn hình scanner làm mẫu đầu tiên.
-     */
-    addSample(
-        target.rssi);
+    target_ = target;
+    historyCount_ = 0;
+    historyWriteIndex_ = 0;
+    currentRssi_ = target.rssi;
+    minimumRssi_ = target.rssi;
+    maximumRssi_ = target.rssi;
+    averageRssi_ = target.rssi;
+    successfulScans_ = 0;
+    missedScans_ = 0;
+    lastScanCode_ = 0;
 
-    running_ =
-        true;
+    for (std::uint8_t index = 0; index < HistorySize; ++index)
+    {
+        history_[index] = -100;
+    }
 
-    state_ =
-        State::Preparing;
+    addSample(target.rssi);
 
-    stateStartedAt_ =
-        millis();
-
-    nextScanAt_ =
-        millis();
+    running_ = true;
+    state_ = State::Ready;
+    nextScanAt_ = millis();
 
     Serial.printf(
         "[SignalMonitor] Started: %s %s CH %ld\n",
         target_.ssid.c_str(),
         target_.bssid.c_str(),
-        static_cast<long>(
-            target_.channel));
-
+        static_cast<long>(target_.channel));
     return true;
 }
 
 void WiFiSignalMonitorService::stop()
 {
+    constexpr WiFiManager::Owner Owner = WiFiManager::Owner::SignalMonitor;
+
     if (
-        state_ == State::Preparing ||
-        state_ == State::Scanning)
+        WiFiManager::owner() == WiFiManager::Owner::None ||
+        WiFiManager::isOwnedBy(Owner))
     {
-        esp_wifi_scan_stop();
+        WiFiManager::cancel(Owner);
+        WiFiManager::release(Owner);
     }
 
-    WiFi.scanDelete();
-
-    running_ =
-        false;
-
-    state_ =
-        State::Idle;
-
-    stateStartedAt_ =
-        millis();
-
-    nextScanAt_ =
-        0;
-
-    lastScanCode_ =
-        0;
+    running_ = false;
+    state_ = State::Idle;
+    nextScanAt_ = 0;
+    lastScanCode_ = 0;
 }
 
 void WiFiSignalMonitorService::update()
@@ -192,132 +133,79 @@ void WiFiSignalMonitorService::update()
         return;
     }
 
-    const std::uint32_t now =
-        millis();
+    constexpr WiFiManager::Owner Owner = WiFiManager::Owner::SignalMonitor;
+    const std::uint32_t now = millis();
 
-    if (
-        state_ == State::Ready ||
-        state_ == State::NotFound ||
-        state_ == State::Failed)
+    if (WiFiManager::isOwnedBy(Owner))
     {
-        if (
-            static_cast<std::int32_t>(
-                now - nextScanAt_) >= 0)
+        WiFiManager::update();
+        lastScanCode_ = WiFiManager::lastScanCode();
+
+        switch (WiFiManager::state())
         {
-            if (!prepareRadio())
+        case WiFiManager::State::Preparing:
+            state_ = State::Preparing;
+            return;
+
+        case WiFiManager::State::Scanning:
+            state_ = State::Scanning;
+            return;
+
+        case WiFiManager::State::Ready:
+            consumeResults(WiFiManager::resultCount());
+
+            if (!WiFiManager::release(Owner))
             {
-                state_ =
-                    State::Failed;
-
-                nextScanAt_ =
-                    now + RetryDelayMs;
-
-                return;
+                state_ = State::Failed;
+                lastScanCode_ = OwnershipLostError;
+                nextScanAt_ = now + RetryDelayMs;
             }
 
-            state_ =
-                State::Preparing;
+            return;
 
-            stateStartedAt_ =
-                now;
-        }
-
-        return;
-    }
-
-    if (state_ == State::Preparing)
-    {
-        if (
-            now - stateStartedAt_ <
-            PrepareDelayMs)
+        case WiFiManager::State::Failed:
         {
+            const std::int16_t managerCode = WiFiManager::lastScanCode();
+            WiFiManager::release(Owner);
+            state_ = State::Failed;
+            lastScanCode_ = managerCode != 0 ? managerCode : ScanRequestError;
+            nextScanAt_ = now + RetryDelayMs;
+
+            Serial.printf(
+                "[SignalMonitor] Scan failed: code=%d\n",
+                static_cast<int>(lastScanCode_));
             return;
         }
 
-        if (!launchScan())
-        {
-            state_ =
-                State::Failed;
-
-            nextScanAt_ =
-                now + RetryDelayMs;
+        case WiFiManager::State::Idle:
+        case WiFiManager::State::Uninitialized:
+        default:
+            WiFiManager::release(Owner);
+            state_ = State::Failed;
+            lastScanCode_ = OwnershipLostError;
+            nextScanAt_ = now + RetryDelayMs;
+            return;
         }
+    }
 
+    if (state_ == State::Preparing || state_ == State::Scanning)
+    {
+        state_ = State::Failed;
+        lastScanCode_ = OwnershipLostError;
+        nextScanAt_ = now + RetryDelayMs;
+
+        Serial.println("[SignalMonitor] Radio ownership lost");
         return;
     }
 
-    if (state_ != State::Scanning)
+    if (static_cast<std::int32_t>(now - nextScanAt_) >= 0)
     {
-        return;
-    }
-
-    const std::int16_t result =
-        WiFi.scanComplete();
-
-    lastScanCode_ =
-        result;
-
-    if (result == WIFI_SCAN_RUNNING)
-    {
-        if (
-            now - stateStartedAt_ >
-            ScanTimeoutMs)
+        if (!requestSample())
         {
-            Serial.println(
-                "[SignalMonitor] Scan timeout");
-
-            esp_wifi_scan_stop();
-            WiFi.scanDelete();
-
-            state_ =
-                State::Failed;
-
-            lastScanCode_ =
-                -202;
-
-            nextScanAt_ =
-                now + RetryDelayMs;
+            state_ = State::Failed;
+            nextScanAt_ = now + RetryDelayMs;
         }
-
-        return;
     }
-
-    if (result == WIFI_SCAN_FAILED)
-    {
-        Serial.println(
-            "[SignalMonitor] Scan failed");
-
-        WiFi.scanDelete();
-
-        state_ =
-            State::Failed;
-
-        nextScanAt_ =
-            now + RetryDelayMs;
-
-        return;
-    }
-
-    if (result < 0)
-    {
-        if (
-            now - stateStartedAt_ >
-            ScanTimeoutMs)
-        {
-            WiFi.scanDelete();
-
-            state_ =
-                State::Failed;
-
-            nextScanAt_ =
-                now + RetryDelayMs;
-        }
-
-        return;
-    }
-
-    processResults(
-        result);
 }
 
 void WiFiSignalMonitorService::requestImmediateSample()
@@ -327,15 +215,12 @@ void WiFiSignalMonitorService::requestImmediateSample()
         return;
     }
 
-    if (
-        state_ == State::Preparing ||
-        state_ == State::Scanning)
+    if (state_ == State::Preparing || state_ == State::Scanning)
     {
         return;
     }
 
-    nextScanAt_ =
-        millis();
+    nextScanAt_ = millis();
 }
 
 bool WiFiSignalMonitorService::isRunning()
@@ -377,7 +262,7 @@ WiFiSignalMonitorService::stateText()
     }
 }
 
-const WiFiScannerService::Network *
+const WiFiScanEntry *
 WiFiSignalMonitorService::target()
 {
     if (!running_)
@@ -621,219 +506,84 @@ WiFiSignalMonitorService::lastScanCode()
     return lastScanCode_;
 }
 
-bool WiFiSignalMonitorService::prepareRadio()
+bool WiFiSignalMonitorService::requestSample()
 {
-    if (WiFi.getMode() != WIFI_STA)
+    constexpr WiFiManager::Owner Owner = WiFiManager::Owner::SignalMonitor;
+    const std::uint8_t channel =
+        target_.channel >= 1 && target_.channel <= 14
+            ? static_cast<std::uint8_t>(target_.channel)
+            : 0;
+
+    if (!WiFiManager::acquire(Owner))
     {
-        WiFi.mode(
-            WIFI_OFF);
-
-        delay(50);
-
-        if (!WiFi.mode(
-                WIFI_STA))
-        {
-            Serial.println(
-                "[SignalMonitor] Cannot enter STA mode");
-
-            return false;
-        }
+        lastScanCode_ = OwnershipUnavailableError;
+        Serial.printf(
+            "[SignalMonitor] Radio busy: owner=%u\n",
+            static_cast<unsigned int>(WiFiManager::owner()));
+        return false;
     }
 
-    WiFi.setSleep(
-        false);
+    if (!WiFiManager::requestScan(Owner, channel, true, 300))
+    {
+        const std::int16_t managerCode = WiFiManager::lastScanCode();
+        WiFiManager::release(Owner);
+        lastScanCode_ = managerCode != 0 ? managerCode : ScanRequestError;
 
-    WiFi.disconnect(
-        false,
-        false);
+        Serial.printf(
+            "[SignalMonitor] Scan request failed: code=%d\n",
+            static_cast<int>(lastScanCode_));
+        return false;
+    }
 
-    esp_wifi_scan_stop();
-
-    WiFi.scanDelete();
-
+    state_ = State::Preparing;
+    lastScanCode_ = 0;
     return true;
 }
 
-bool WiFiSignalMonitorService::launchScan()
-{
-    /*
-     * Chỉ scan channel của AP mục tiêu.
-     *
-     * Nhanh hơn quét toàn bộ 2.4 GHz và phù hợp
-     * với Signal Monitor active-scan phiên bản đầu.
-     */
-    std::uint8_t channel =
-        0;
-
-    if (
-        target_.channel >= 1 &&
-        target_.channel <= 14)
-    {
-        channel =
-            static_cast<std::uint8_t>(
-                target_.channel);
-    }
-
-    const std::int16_t result =
-        WiFi.scanNetworks(
-            true,
-            true,
-            false,
-            300,
-            channel);
-
-    lastScanCode_ =
-        result;
-
-    Serial.printf(
-        "[SignalMonitor] Scan start: result=%d channel=%u\n",
-        static_cast<int>(
-            result),
-        static_cast<unsigned int>(
-            channel));
-
-    if (result == WIFI_SCAN_RUNNING)
-    {
-        state_ =
-            State::Scanning;
-
-        stateStartedAt_ =
-            millis();
-
-        return true;
-    }
-
-    if (result >= 0)
-    {
-        processResults(
-            result);
-
-        return true;
-    }
-
-    /*
-     * Recovery khi driver từ chối khởi động scan.
-     */
-    if (result == WIFI_SCAN_FAILED)
-    {
-        WiFi.disconnect(
-            false,
-            false);
-
-        delay(80);
-
-        const std::int16_t retryResult =
-            WiFi.scanNetworks(
-                true,
-                true,
-                false,
-                300,
-                channel);
-
-        lastScanCode_ =
-            retryResult;
-
-        if (retryResult == WIFI_SCAN_RUNNING)
-        {
-            state_ =
-                State::Scanning;
-
-            stateStartedAt_ =
-                millis();
-
-            return true;
-        }
-
-        if (retryResult >= 0)
-        {
-            processResults(
-                retryResult);
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-void WiFiSignalMonitorService::processResults(
+void WiFiSignalMonitorService::consumeResults(
     const std::int16_t resultCount)
 {
-    bool found =
-        false;
+    bool found = false;
+    std::int32_t strongestRssi = -127;
 
-    std::int32_t strongestRssi =
-        -127;
-
-    for (std::int16_t index = 0;
-         index < resultCount;
-         ++index)
+    for (std::int16_t index = 0; index < resultCount; ++index)
     {
-        const String bssid =
-            WiFi.BSSIDstr(
-                index);
-
-        if (!bssidMatches(
-                bssid,
-                target_.bssid))
+        if (!bssidMatches(WiFiManager::bssid(index), target_.bssid))
         {
             continue;
         }
 
-        const std::int32_t rssi =
-            WiFi.RSSI(
-                index);
+        const std::int32_t value = WiFiManager::rssi(index);
 
-        if (
-            !found ||
-            rssi > strongestRssi)
+        if (!found || value > strongestRssi)
         {
-            strongestRssi =
-                rssi;
-
-            found =
-                true;
+            found = true;
+            strongestRssi = value;
         }
     }
 
-    WiFi.scanDelete();
-
-    const std::uint32_t now =
-        millis();
+    const std::uint32_t now = millis();
 
     if (found)
     {
-        addSample(
-            strongestRssi);
-
+        addSample(strongestRssi);
         ++successfulScans_;
-
-        state_ =
-            State::Ready;
-
-        nextScanAt_ =
-            now + SampleIntervalMs;
+        state_ = State::Ready;
+        nextScanAt_ = now + SampleIntervalMs;
 
         Serial.printf(
             "[SignalMonitor] RSSI %ld dBm\n",
-            static_cast<long>(
-                strongestRssi));
-
+            static_cast<long>(strongestRssi));
         return;
     }
 
     ++missedScans_;
-
-    state_ =
-        State::NotFound;
-
-    nextScanAt_ =
-        now + RetryDelayMs;
+    state_ = State::NotFound;
+    nextScanAt_ = now + RetryDelayMs;
 
     Serial.printf(
         "[SignalMonitor] Target not found, miss=%lu\n",
-        static_cast<unsigned long>(
-            missedScans_));
+        static_cast<unsigned long>(missedScans_));
 }
 
 void WiFiSignalMonitorService::addSample(

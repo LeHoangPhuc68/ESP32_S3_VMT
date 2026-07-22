@@ -16,6 +16,8 @@ enum class AppId : std::uint8_t
     USBTools,
     System,
     Settings,
+    ChannelAnalyzer,
+    PacketMonitor,
 
     Count,
     Invalid = 0xFF

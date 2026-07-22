@@ -22,28 +22,42 @@ namespace AppCatalog
             "Bluetooth",
             false,
             false,
-            "Bluetooth  soon"
+            "Bluetooth coming soon"
         },
         {
             AppId::USBTools,
             "USB Tools",
             false,
             false,
-            "USB Tools  soon"
+            "USB Tools coming soon"
         },
         {
             AppId::System,
             "System",
             false,
             false,
-            "System  soon"
+            "System coming soon"
         },
         {
             AppId::Settings,
             "Settings",
             false,
             false,
-            "Settings  soon"
+            "Settings coming soon"
+        },
+        {
+            AppId::ChannelAnalyzer,
+            "Channel Analyzer",
+            true,
+            true,
+            nullptr
+        },
+        {
+            AppId::PacketMonitor,
+            "Packet Monitor",
+            true,
+            true,
+            nullptr
         }
     };
 

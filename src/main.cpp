@@ -21,20 +21,17 @@ namespace
   {
     switch (action)
     {
-    case InputManager::Action::Previous:
-      return "PREVIOUS";
-
     case InputManager::Action::Next:
       return "NEXT";
 
     case InputManager::Action::Select:
       return "SELECT";
 
+    case InputManager::Action::Primary:
+      return "PRIMARY";
+
     case InputManager::Action::Back:
       return "BACK";
-
-    case InputManager::Action::Home:
-      return "HOME";
 
     case InputManager::Action::None:
     default:

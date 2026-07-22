@@ -24,6 +24,8 @@ public:
 
     const char *name() const override;
 
+    void showMainMenu();
+
 private:
     void createWallpaper();
     void createBrandLabel();

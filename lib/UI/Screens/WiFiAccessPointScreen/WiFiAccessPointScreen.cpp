@@ -55,9 +55,7 @@ bool WiFiAccessPointScreen::create(
     const NavigationCallback monitorCallback,
     void *monitorContext,
     const NavigationCallback backCallback,
-    void *backContext,
-    const NavigationCallback homeCallback,
-    void *homeContext)
+    void *backContext)
 {
     if (parent == nullptr)
     {
@@ -73,12 +71,6 @@ bool WiFiAccessPointScreen::create(
 
     backContext_ =
         backContext;
-
-    homeCallback_ =
-        homeCallback;
-
-    homeContext_ =
-        homeContext;
 
     if (root_ != nullptr)
     {
@@ -163,8 +155,6 @@ bool WiFiAccessPointScreen::create(
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
         nullptr);
 }
 
@@ -215,19 +205,13 @@ void WiFiAccessPointScreen::handleInput(
         break;
     }
 
-    case InputManager::Action::Home:
-    {
-        requestHome();
-        break;
-    }
-
     case InputManager::Action::Select:
+    case InputManager::Action::Primary:
     {
         requestMonitor();
         break;
     }
 
-    case InputManager::Action::Previous:
     case InputManager::Action::Next:
     case InputManager::Action::None:
     default:
@@ -572,7 +556,7 @@ void WiFiAccessPointScreen::createFooter()
 
     lv_label_set_text(
         footerLabel_,
-        "SELECT  MONITOR   BACK  LIST   HOME  EXIT");
+        "KEY HOLD/BOOT OPEN MONITOR   BOOT HOLD BACK");
 
     lv_obj_set_style_text_font(
         footerLabel_,
@@ -594,7 +578,7 @@ void WiFiAccessPointScreen::createFooter()
 
 void WiFiAccessPointScreen::refresh()
 {
-    const WiFiScannerService::Network *network =
+    const WiFiScanEntry *network =
         WiFiSelectionService::selected();
 
     if (network == nullptr)
@@ -761,16 +745,6 @@ void WiFiAccessPointScreen::requestBack()
         backContext_);
 }
 
-void WiFiAccessPointScreen::requestHome()
-{
-    if (homeCallback_ == nullptr)
-    {
-        return;
-    }
-
-    homeCallback_(
-        homeContext_);
-}
 void WiFiAccessPointScreen::requestMonitor()
 {
     if (monitorCallback_ == nullptr)

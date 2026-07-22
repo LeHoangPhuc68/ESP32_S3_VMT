@@ -44,9 +44,7 @@ namespace
 bool WiFiSignalMonitorScreen::create(
     lv_obj_t *parent,
     const NavigationCallback backCallback,
-    void *backContext,
-    const NavigationCallback homeCallback,
-    void *homeContext)
+    void *backContext)
 {
     if (parent == nullptr)
     {
@@ -58,12 +56,6 @@ bool WiFiSignalMonitorScreen::create(
 
     backContext_ =
         backContext;
-
-    homeCallback_ =
-        homeCallback;
-
-    homeContext_ =
-        homeContext;
 
     if (root_ != nullptr)
     {
@@ -148,8 +140,6 @@ bool WiFiSignalMonitorScreen::create(
     return create(
         parent,
         nullptr,
-        nullptr,
-        nullptr,
         nullptr);
 }
 
@@ -164,7 +154,7 @@ void WiFiSignalMonitorScreen::show()
         root_,
         LV_OBJ_FLAG_HIDDEN);
 
-    const WiFiScannerService::Network *selected =
+    const WiFiScanEntry *selected =
         WiFiSelectionService::selected();
 
     if (selected != nullptr)
@@ -219,6 +209,7 @@ void WiFiSignalMonitorScreen::handleInput(
     switch (action)
     {
     case InputManager::Action::Select:
+    case InputManager::Action::Primary:
     {
         WiFiSignalMonitorService::
             requestImmediateSample();
@@ -232,13 +223,6 @@ void WiFiSignalMonitorScreen::handleInput(
         break;
     }
 
-    case InputManager::Action::Home:
-    {
-        requestHome();
-        break;
-    }
-
-    case InputManager::Action::Previous:
     case InputManager::Action::Next:
     case InputManager::Action::None:
     default:
@@ -564,7 +548,7 @@ void WiFiSignalMonitorScreen::createFooter()
 
     lv_label_set_text(
         footerLabel_,
-        "SELECT SAMPLE   BACK DETAIL   HOME EXIT");
+        "KEY HOLD/BOOT SAMPLE   BOOT HOLD BACK");
 
     lv_obj_set_style_text_font(
         footerLabel_,
@@ -586,7 +570,7 @@ void WiFiSignalMonitorScreen::createFooter()
 
 void WiFiSignalMonitorScreen::refresh()
 {
-    const WiFiScannerService::Network *target =
+    const WiFiScanEntry *target =
         WiFiSignalMonitorService::target();
 
     lv_label_set_text(
@@ -897,15 +881,6 @@ void WiFiSignalMonitorScreen::requestBack()
     {
         backCallback_(
             backContext_);
-    }
-}
-
-void WiFiSignalMonitorScreen::requestHome()
-{
-    if (homeCallback_ != nullptr)
-    {
-        homeCallback_(
-            homeContext_);
     }
 }
 

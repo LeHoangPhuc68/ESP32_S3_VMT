@@ -1,6 +1,6 @@
 #pragma once
 
-#include "WiFiScannerService.h"
+#include "WiFiScanSnapshot.h"
 
 class WiFiSelectionService final
 {
@@ -12,11 +12,11 @@ public:
      * vào index của danh sách scan.
      */
     static bool select(
-        const WiFiScannerService::Network &network);
+        const WiFiScanEntry &network);
 
     static bool hasSelection();
 
-    static const WiFiScannerService::Network *selected();
+    static const WiFiScanEntry *selected();
 
     static void clear();
 
@@ -33,5 +33,5 @@ public:
 private:
     static bool hasSelection_;
 
-    static WiFiScannerService::Network selected_;
+    static WiFiScanEntry selected_;
 };
